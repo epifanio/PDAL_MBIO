@@ -1,0 +1,123 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+ARG MBSYS_VERSION=5.7.5
+RUN apt-get update && apt-get upgrade -y 
+
+
+
+RUN apt-get install -y \
+    python3-pip \
+    build-essential \
+    gfortran \
+    libeigen3-dev \
+    cmake \
+    git \
+    wget \
+    unzip \
+    pkg-config \
+    pkg-config \
+    python3-dev \
+    python3-numpy \
+    pylint \
+    libgdal-dev \
+    python3-gdal \
+    python3-pyproj \
+    cmake-curses-gui \
+    nano 
+
+RUN apt-get update && apt-get install -y gmt \
+    libgmt-dev \
+    libfftw3-dev \
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
+    cmake-curses-gui \
+    liblaszip-dev \
+    python3-all-dev \
+    libtirpc-dev \
+    libntirpc-dev \
+    libmotif-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY OTPS.tar.Z OTPS.tar.Z
+RUN tar -zxvf OTPS.tar.Z && rm -rf OTPS.tar.Z && cd OTPS && make && make predict_tide
+
+RUN ls /usr/include/tirpc/
+RUN ls /usr/include/tirpc/rpc
+
+RUN mkdir -p /opt/mb && cd /opt/mb && wget https://github.com/dwcaress/MB-System/archive/$MBSYS_VERSION.tar.gz && \
+    tar -zxf $MBSYS_VERSION.tar.gz && \
+    cd MB-System-$MBSYS_VERSION && \
+    sh autogen.sh && \
+    ./configure --disable-mbtools --with-proj-include=/usr/include \
+    --with-otps-dir='../OTPS/' && \
+    make -j"$(nproc)" && \
+    make install
+
+RUN mkdir -p /opt/pdal && cd /opt/pdal && git clone https://github.com/hobu/laz-perf.git && \
+    cd laz-perf && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make -j"$(nproc)" && \
+    make install
+
+# https://github.com/PDAL/PDAL/releases/download/2.4.2/PDAL-2.4.2-src.tar.gz
+# RUN mkdir -p /opt/pdal && cd /opt/pdal && git clone https://github.com/PDAL/PDAL && \
+#     cd PDAL && \
+#     mkdir build && \
+#     cd build && \
+#     cmake -DBUILD_PLUGIN_MBIO=ON .. && \
+#     make -j"$(nproc)" && \
+#     make install
+
+
+RUN mkdir -p /opt/pdal && cd /opt/pdal && wget https://github.com/PDAL/PDAL/releases/download/2.4.3/PDAL-2.4.3-src.tar.gz && \
+    tar -zxvf PDAL-2.4.3-src.tar.gz && \
+    cd PDAL-2.4.3-src && \
+    mkdir build && \
+    cd build && \
+    cmake -DBUILD_PLUGIN_MBIO=ON .. && \
+    make -j"$(nproc)" && \
+    make install
+
+RUN /usr/bin/python3 -m pip install --upgrade pip && pip install scikit-build && pip install pybind11[global]
+RUN pip3 install Cython
+
+# https://github.com/PDAL/python/archive/refs/tags/3.1.2.tar.gz
+# RUN cd /opt/pdal && git clone https://github.com/PDAL/python && cd python && python3 setup.py build && python3 setup.py install
+RUN cd /opt/pdal && wget https://github.com/PDAL/python/archive/refs/tags/3.1.2.tar.gz && tar -zxvf 3.1.2.tar.gz && cd python-3.1.2 && python3 setup.py build && python3 setup.py install
+
+RUN ldconfig /etc/ld.so.conf.d
+
+RUN wget --directory-prefix=/opt/mb-data/ https://cloud.epinux.com/s/5MWBzBEssoK7AEM/download/170_001_1942.hsx
+# COPY 170_001_1942.hsx /opt/mb-data/170_001_1942.hsx
+RUN echo 'log:'
+RUN pdal info --driver readers.mbio --readers.mbio.format="MBF_HYSWEEP1" /opt/mb-data/170_001_1942.hsx
+
+
+COPY requirements.txt .
+RUN pip install -U pip
+RUN pip install -r requirements.txt
+
+COPY ./start.sh /start.sh
+RUN chmod +x /start.sh
+
+COPY ./gunicorn_conf.py /gunicorn_conf.py
+
+COPY ./start-reload.sh /start-reload.sh
+RUN chmod +x /start-reload.sh
+
+COPY ./app /app
+
+WORKDIR /
+
+ENV PYTHONPATH=/app
+
+EXPOSE 80
+
+# Run the start script, it will check for an /app/prestart.sh script (e.g. for migrations)
+# And then will start Gunicorn with Uvicorn
+CMD ["/start.sh"]

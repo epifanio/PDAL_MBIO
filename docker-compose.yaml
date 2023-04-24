@@ -1,0 +1,19 @@
+version: '3.3'
+
+services:
+  grassapi:
+    # image: epinux/fastapi:latest
+    image: epinux/pdal-mbio:5.7.5
+    build:
+      context: ./docker
+    environment:
+      DEBUG: 1
+      PYTHONUNBUFFERED: 1
+      LOGLEVEL: DEBUG
+      FORWARDED_ALLOW_IPS: "*"
+    hostname: mbapi
+    volumes:
+      - ./apps/mbapp:/app
+      - ./mbdata:/app/mbdata
+    ports:
+      - 80:80
