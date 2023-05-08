@@ -1,7 +1,7 @@
 version: '3.3'
 
 services:
-  grassapi:
+  mbapi:
     # image: epinux/fastapi:latest
     image: epinux/pdal-mbio:5.7.5
     build:
@@ -16,4 +16,28 @@ services:
       - ./apps/mbapp:/app
       - ./mbdata:/app/mbdata
     ports:
-      - 80:80
+      - 90:80
+
+  jupyter:
+    # image: epinux/nvxviz-lab:test
+    image: epinux/mbio_lab
+    build:
+      context: docker/jupyter
+      dockerfile: dockerfile
+    environment:
+      - NB_DIR=/home/jovyan/notebooks
+      - JUPYTER_ENABLE_LAB=yes
+      - GRANT_SUDO=yes
+    volumes:
+      - ./notebooks:/home/jovyan/notebooks
+      - ./mbdata:/home/jovyan/notebooks/mbdata
+      - /media/epinux/media_ext1/MBES:/home/jovyan/notebooks/MBES
+      - jupyter_mbio_lab_data:/home/jovyan/.jupyter/
+      - jupyter_mbio_user_data:/home/jovyan/.local
+
+    ports:
+      - 9999:8888
+
+volumes:
+  jupyter_mbio_lab_data:
+  jupyter_mbio_user_data:

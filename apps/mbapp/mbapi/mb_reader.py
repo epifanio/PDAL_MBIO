@@ -82,7 +82,7 @@ def readEM1000_1(args):
         return count
 
 
-def readEM1000(args):
+def read_mbraw2(args):
     file_name = args['file_name']
     if 'reader_driver' in args:
         reader_driver = args['reader_driver']
@@ -105,7 +105,7 @@ def readEM1000(args):
         # if args['reproject']:
         in_srs = args['in_srs']
         out_srs = args['out_srs']
-        t = Template('{"pipeline":[{"filename": "${file_name}","type":"readers.${reader_driver}","format" : "${file_format}"}, {"type":"filters.reprojection", "in_srs":"${in_srs}", "out_srs":"${out_srs}"}]}')
+        t = Template('{"pipeline":[{"filename": "${file_name}", "type":"readers.${reader_driver}","format" : "${file_format}"}, {"type":"filters.reprojection", "in_srs":"${in_srs}", "out_srs":"${out_srs}"}]}')
         json = t.substitute(file_name=file_name, 
                             reader_driver=reader_driver, 
                             file_format=file_format, 
@@ -118,7 +118,7 @@ def readEM1000(args):
     # print(json)
     p = pdal.Pipeline(json)
     # p.validate()  # check if our JSON and options were good
-    p.loglevel = 8  # really noisy
+    # p.loglevel = 8  # really noisy
     count = p.execute()
     data = p.arrays[0]
     if verbose:
@@ -138,3 +138,45 @@ def readEM1000(args):
         return pd.DataFrame(data)
     if output_type == 'count':
         return count
+    
+def read_mbraw(args):
+    file_name = args['file_name']
+    if 'reader_driver' in args:
+        reader_driver = args['reader_driver']
+    else:
+        reader_driver = 'mbio'
+    if 'file_format' in args:
+        file_format = args['file_format']
+    else:
+        file_format = 'MBF_EMOLDRAW'
+        
+        
+    if 'output_type' in args:
+        output_type = args['output_type']
+    else:
+        output_type = 'numpy.array'
+    assert output_type in ['numpy.array', 'pandas.DataFrame'], "wrong output type"
+    
+    
+    if all(opt in args for opt in ['reproject', 'in_srs', 'out_srs']):
+        # if args['reproject']:
+        in_srs = args['in_srs']
+        out_srs = args['out_srs']
+        t = Template('{"pipeline":[{"filename": "${file_name}", "type":"readers.${reader_driver}","format" : "${file_format}"}, {"type":"filters.reprojection", "in_srs":"${in_srs}", "out_srs":"${out_srs}"}]}')
+        json = t.substitute(file_name=file_name, 
+                            reader_driver=reader_driver, 
+                            file_format=file_format, 
+                            in_srs=in_srs, 
+                            out_srs=out_srs)
+
+    else:
+        t = Template('{"pipeline":[{"filename": "${file_name}","type":"readers.${reader_driver}","format" : "${file_format}"}]}')
+        json = t.substitute(file_name=file_name, reader_driver=reader_driver, file_format = file_format) 
+    p = pdal.Pipeline(json)
+    count = p.execute()
+    data = p.arrays[0]
+
+    if output_type == 'numpy.array':
+        return data
+    if output_type == 'pandas.DataFrame':
+        return pd.DataFrame(data)

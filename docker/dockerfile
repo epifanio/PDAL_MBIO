@@ -44,8 +44,8 @@ RUN apt-get update && apt-get install -y gmt \
 COPY OTPS.tar.Z OTPS.tar.Z
 RUN tar -zxvf OTPS.tar.Z && rm -rf OTPS.tar.Z && cd OTPS && make && make predict_tide
 
-RUN ls /usr/include/tirpc/
-RUN ls /usr/include/tirpc/rpc
+# RUN ls /usr/include/tirpc/
+# RUN ls /usr/include/tirpc/rpc
 
 RUN mkdir -p /opt/mb && cd /opt/mb && wget https://github.com/dwcaress/MB-System/archive/$MBSYS_VERSION.tar.gz && \
     tar -zxf $MBSYS_VERSION.tar.gz && \
@@ -101,6 +101,21 @@ RUN pdal info --driver readers.mbio --readers.mbio.format="MBF_HYSWEEP1" /opt/mb
 COPY requirements.txt .
 RUN pip install -U pip
 RUN pip install -r requirements.txt
+
+RUN pip install numba
+
+RUN cp /etc/apt/sources.list /etc/apt/sources.list~ && sed -Ei 's/^# deb-src /deb-src /' /etc/apt/sources.list && apt-get update
+
+RUN apt build-dep -y grass
+RUN git clone https://github.com/OSGeo/grass 
+RUN cd grass && ./configure --without-pdal && make -j"$(nproc)" && \
+    make install
+
+RUN cd && git clone https://github.com/OSGeo/grass-addons && \
+    cd grass-addons/src/ && make MODULE_TOPDIR=/usr/local/grass83
+
+RUN apt-get install -y python3-matplotlib
+RUN pip install plotnine
 
 COPY ./start.sh /start.sh
 RUN chmod +x /start.sh

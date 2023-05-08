@@ -1,3 +1,5 @@
 mbdata/
 *__pycache__
 *.tar.Z
+mbdata/
+notebooks/
