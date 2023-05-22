@@ -112,7 +112,7 @@ RUN cd grass && ./configure --without-pdal && make -j"$(nproc)" && \
     make install
 
 RUN cd && git clone https://github.com/OSGeo/grass-addons && \
-    cd grass-addons/src/ && make MODULE_TOPDIR=/usr/local/grass83
+    cd grass-addons/src/ && make MODULE_TOPDIR=/usr/local/grass84
 
 RUN apt-get install -y python3-matplotlib
 RUN pip install plotnine
