@@ -158,6 +158,12 @@ HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=3 \
     CMD /etc/jupyter/docker_healthcheck.py || exit 1
 
 # Switch back to jovyan to avoid accidental container runs as root
+
+SHELL ["conda", "run", "-n", "base", "/bin/bash", "-c"]
+
+RUN mamba install ipython ipykernel
+RUN ipython kernel install --name "conda" --user
+
 USER ${NB_UID}
 
 WORKDIR "${HOME}"
