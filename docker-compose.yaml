@@ -31,12 +31,12 @@ services:
     volumes:
       - ./notebooks:/home/jovyan/notebooks
       - ./mbdata:/home/jovyan/notebooks/mbdata
-      - /media/epinux/media_ext1/MBES:/home/jovyan/notebooks/MBES
+      # - /media/epinux/media_ext1/MBES:/home/jovyan/notebooks/MBES
       - jupyter_mbio_lab_data:/home/jovyan/.jupyter/
       - jupyter_mbio_user_data:/home/jovyan/.local
 
     ports:
-      - 9999:8888
+      - 8888:8888
 
 volumes:
   jupyter_mbio_lab_data:
