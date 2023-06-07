@@ -1,6 +1,7 @@
 import fastapi
 from starlette.middleware.cors import CORSMiddleware
 from mbapi import mbio
+from grassapi import general
 import uvicorn
 # from views import dashboard
 
@@ -23,6 +24,7 @@ MAX_PROCESSING_SECOND = 600
 
 def configure_routing():
     app.include_router(mbio.router)
+    app.include_router(general.router)
     # app.include_router(dashboard.router)
 
 
