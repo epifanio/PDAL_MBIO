@@ -3,13 +3,62 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
+
+ARG conda_version="23.1.0"
+# Miniforge installer patch version
+# ARG miniforge_patch_number="7"
+ARG mambaforge_patch_number="1"
+# Miniforge installer architecture
+# ARG miniforge_arch="x86_64"
+ARG mambaforge_arch="x86_64"
+# Python implementation to use 
+# can be either Miniforge3 to use Python or Miniforge-pypy3 to use PyPy
+# ARG miniforge_python="Miniforge3"
+ARG mambaforge_python="Mambaforge"
+
+# Miniforge archive to install
+ARG mambaforge_version="${conda_version}-${mambaforge_patch_number}"
+# Miniforge installer
+ARG mambaforge_installer="${mambaforge_python}-${mambaforge_version}-Linux-${mambaforge_arch}.sh"
+# Mambaforge checksum
+ARG mambaforge_checksum="cfb16c47dc2d115c8b114280aa605e322173f029fdb847a45348bf4bd23c62ab"
+
+
+RUN apt-get update \
+    && apt-get install -yq --no-install-recommends \
+    wget \
+    ca-certificates \
+    sudo \
+    locales \
+    fonts-liberation \
+    run-one \
+    xauth
+
+
+# && \
+# mamba update --all --quiet --yes && \
+# mamba list tini | grep tini | tr -s ' ' | cut -d ' ' -f 1,2 >> $CONDA_DIR/conda-meta/pinned && \
+# mamba clean --all -f -y  && \
+# fix-permissions $CONDA_DIR
+
+
 ARG MBSYS_VERSION=5.7.5
+
+RUN cp /etc/apt/sources.list /etc/apt/sources.list~ && sed -Ei 's/^# deb-src /deb-src /' /etc/apt/sources.list && apt-get update
+RUN sed -i 's/# deb-src/deb-src/' /etc/apt/sources.list
 RUN apt-get update && apt-get upgrade -y 
+RUN apt build-dep -y grass
+#RUN apt install software-properties-common -y
+#RUN add-apt-repository -y ppa:deadsnakes/ppa
+#RUN apt-get --purge remove -y *python*
+#RUN apt install -y python3.10 python3.10-dev libpython3.10-dev python3-distutils-extra python3-distutils
 
+#RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 4
 
+#RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.10
+#RUN python3.10 -m pip --version
 
 RUN apt-get install -y \
-    python3-pip \
     build-essential \
     gfortran \
     libeigen3-dev \
@@ -21,9 +70,10 @@ RUN apt-get install -y \
     pkg-config \
     python3-dev \
     python3-numpy \
-    pylint \
-    libgdal-dev \
     python3-gdal \
+    pylint \
+    python3-pip \
+    cython3 \
     python3-pyproj \
     cmake-curses-gui \
     nano 
@@ -39,7 +89,60 @@ RUN apt-get update && apt-get install -y gmt \
     libtirpc-dev \
     libntirpc-dev \
     libmotif-dev \
+    libgdal-dev \
+    gdal-bin \
     && rm -rf /var/lib/apt/lists/*
+
+
+RUN git clone https://github.com/OSGeo/grass 
+RUN cd grass && ./configure --without-pdal && make -j"$(nproc)" && \
+    make install
+
+RUN cd && git clone https://github.com/OSGeo/grass-addons && \
+    cd grass-addons/src/ && make MODULE_TOPDIR=/usr/local/grass84
+
+# Configure environment
+ENV CONDA_DIR=/opt/conda \
+    SHELL=/bin/bash \
+    # NB_USER=$NB_USER \
+    # NB_UID=$NB_UID \
+    # NB_GID=$NB_GID \
+    LC_ALL=en_US.UTF-8 \
+    LANG=en_US.UTF-8 \
+    LANGUAGE=en_US.UTF-8
+ENV PATH=$CONDA_DIR/bin:$PATH \
+    # HOME=/home/$NB_USER \
+    CONDA_VERSION="${conda_version}" \
+    MINIFORGE_VERSION="${mambaforge_version}"
+
+ARG PYTHON_VERSION=default
+
+COPY jupyter/fix-permissions /usr/local/bin/fix-permissions
+RUN chmod a+rx /usr/local/bin/fix-permissions
+
+RUN wget --quiet "https://github.com/conda-forge/miniforge/releases/download/${mambaforge_version}/${mambaforge_installer}" && \
+    /bin/bash "${mambaforge_installer}" -f -b -p $CONDA_DIR && \
+    rm "${mambaforge_installer}" && \
+    mamba config --system --set auto_update_conda false && \
+    mamba config --system --set show_channel_urls true && \
+    if [ ! $PYTHON_VERSION = 'default' ]; then mamba install --yes python=$PYTHON_VERSION; fi && \
+    conda list python | grep '^python ' | tr -s ' ' | cut -d '.' -f 1,2 | sed 's/$/.*/' >> $CONDA_DIR/conda-meta/pinned && \
+    mamba install --quiet --yes \
+    "mamba" \
+    'pip' \
+    'tini=0.18.0' 
+
+
+# RUN echo && cat /etc/apt/sources.list 
+
+# RUN apt-get update && apt-get build-dep -y libgdal-dev && \ 
+#     wget https://github.com/OSGeo/gdal/releases/download/v3.5.2/gdal-3.5.2.tar.gz && \
+#     tar -zxvf gdal-3.5.2.tar.gz && \
+#     cd gdal-3.5.2 && \
+#     mkdir build && cd build && \
+#     cmake .. && \
+#     make -j"$(nproc)" && \
+#     make install
 
 COPY OTPS.tar.Z OTPS.tar.Z
 RUN tar -zxvf OTPS.tar.Z && rm -rf OTPS.tar.Z && cd OTPS && make && make predict_tide
@@ -55,6 +158,7 @@ RUN mkdir -p /opt/mb && cd /opt/mb && wget https://github.com/dwcaress/MB-System
     --with-otps-dir='../OTPS/' && \
     make -j"$(nproc)" && \
     make install
+
 
 RUN mkdir -p /opt/pdal && cd /opt/pdal && git clone https://github.com/hobu/laz-perf.git && \
     cd laz-perf && \
@@ -80,14 +184,30 @@ RUN mkdir -p /opt/pdal && cd /opt/pdal && wget https://github.com/PDAL/PDAL/rele
     mkdir build && \
     cd build && \
     cmake -DBUILD_PLUGIN_MBIO=ON .. && \
-    make -j"$(nproc)" && \
+    make && \
     make install
 
-RUN /usr/bin/python3 -m pip install --upgrade pip && pip install scikit-build && pip install pybind11[global]
-RUN pip3 install Cython
+# RUN python3.10 -m pip install -U pip
+# RUN ls -la /usr/bin | grep pip
+# RUN  python3 -m pip install git+https://github.com/scikit-build/scikit-build
+
+
+RUN pip install git+https://github.com/scikit-build/scikit-build
+RUN pip install pybind11[global]
+
+# RUN python3.10 -m pip install pybind11[global]
+# RUN python3.10 -m pip install Cython
+# RUN python3.10 -m pip install -U numpy
+
+RUN wget -qO /usr/local/bin/ninja.gz https://github.com/ninja-build/ninja/releases/latest/download/ninja-linux.zip \
+    && gunzip /usr/local/bin/ninja.gz && chmod a+x /usr/local/bin/ninja && ninja --version
 
 # https://github.com/PDAL/python/archive/refs/tags/3.1.2.tar.gz
 # RUN cd /opt/pdal && git clone https://github.com/PDAL/python && cd python && python3 setup.py build && python3 setup.py install
+
+SHELL ["conda", "run", "-n", "base", "/bin/bash", "-c"]
+RUN mamba install -y numpy
+
 RUN cd /opt/pdal && wget https://github.com/PDAL/python/archive/refs/tags/3.1.2.tar.gz && tar -zxvf 3.1.2.tar.gz && cd python-3.1.2 && python3 setup.py build && python3 setup.py install
 
 RUN ldconfig /etc/ld.so.conf.d
@@ -98,24 +218,62 @@ RUN echo 'log:'
 RUN pdal info --driver readers.mbio --readers.mbio.format="MBF_HYSWEEP1" /opt/mb-data/170_001_1942.hsx
 
 
-COPY requirements.txt .
-RUN pip install -U pip
-RUN pip install -r requirements.txt
+#COPY requirements.txt .
+# RUN python3.10 -m pip install -r requirements.txt
 
-RUN pip install numba
+#RUN pip install -r requirements.txt
 
-RUN cp /etc/apt/sources.list /etc/apt/sources.list~ && sed -Ei 's/^# deb-src /deb-src /' /etc/apt/sources.list && apt-get update
+# RUN python3.10 -m pip install numba
+RUN mamba install -y -c conda-forge numba \
+    httpx \
+    requests \
+    Jinja2 \
+    httptools \
+    pyyaml \
+    numpy \
+    python-multipart \
+    parmap \
+    pyproj \
+    pandas \
+    polars \
+    matplotlib \
+    plotnine \
+    pyarrow \
+    gdal
 
-RUN apt build-dep -y grass
-RUN git clone https://github.com/OSGeo/grass 
-RUN cd grass && ./configure --without-pdal && make -j"$(nproc)" && \
-    make install
+RUN pip install grass_session
+RUN pip install git+https://github.com/cheind/pydantic-numpy.git
+RUN pip install redis 
+RUN pip install redisearch 
 
-RUN cd && git clone https://github.com/OSGeo/grass-addons && \
-    cd grass-addons/src/ && make MODULE_TOPDIR=/usr/local/grass84
+RUN pip install -U pydantic uvicorn starlette celery gunicorn typer uvloop itsdangerous aiofiles
+RUN pip install -U fastapi
 
-RUN apt-get install -y python3-matplotlib
-RUN pip install plotnine
+# RUN mamba install -y -c conda-forge wxpython
+
+# RUN git clone https://github.com/OSGeo/grass 
+# RUN cd grass && ./configure --without-pdal && make -j"$(nproc)" && \
+#     make install
+
+# RUN cd && git clone https://github.com/OSGeo/grass-addons && \
+#     cd grass-addons/src/ && make MODULE_TOPDIR=/usr/local/grass84
+
+# RUN python3.10 -m pip install plotnine
+
+RUN apt-get update
+
+#  RUN apt install 2to3 && apt install python3-lib2to3 && apt install python3-toolz
+RUN apt install -y mlocate && updatedb
+
+
+# RUN cp -r /usr/lib/python3/dist-packages/osgeo  /usr/local/lib/python3.10/dist-packages/
+
+#RUN python3.10 -m pip install GDAL==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}')
+# RUN python3.10 -m pip install GDAL==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}') 
+
+# RUN apt install libgdal-dev
+
+# RUN python3.10 -m pip install -U gdal
 
 COPY ./start.sh /start.sh
 RUN chmod +x /start.sh
