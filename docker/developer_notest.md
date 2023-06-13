@@ -1,0 +1,2 @@
+Looking at the [Dockerfile](Dockerfile)
+ , at the moment the container builds from source PDAL MB-System and GRASS including GRASS GIS Addons. It also includes a conda python environment which runs the API code. I had to pin the MB-System and  PDAL version as the MBIO driver (PDAL MB-System drivers) are no longer mantained. Hopefully this will change in the future. There are open issues on both PDAL and MB-System repository.
