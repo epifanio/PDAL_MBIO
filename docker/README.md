@@ -9,7 +9,7 @@
 * From the root directory of this repository, run:
 
 ```bash
-docker build -f docker/Dockerfile -t dash_app .
+docker build -f docker/Dockerfile -t mbapi .
 ```
 
 ## Start the service
@@ -18,7 +18,7 @@ docker build -f docker/Dockerfile -t dash_app .
 docker-compose -f docker/docker-compose up
 ```
 
-Your app should now run on [http://localhost:9000](http://localhost:9000)
+Your app should now run on [http://localhost:80/doc](http://localhost:80/doc)
 
 # Docker Deployment notes
 
