@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1
 ARG conda_version="23.1.0"
 # Miniforge installer patch version
 # ARG miniforge_patch_number="7"
-ARG mambaforge_patch_number="1"
+ARG mambaforge_patch_number="4"
 # Miniforge installer architecture
 # ARG miniforge_arch="x86_64"
 ARG mambaforge_arch="x86_64"
@@ -245,9 +245,9 @@ RUN pip install grass_session
 RUN pip install git+https://github.com/cheind/pydantic-numpy.git
 RUN pip install redis 
 RUN pip install redisearch 
-
-RUN pip install -U pydantic uvicorn starlette celery gunicorn typer uvloop itsdangerous aiofiles
-RUN pip install -U fastapi
+RUN pip install "pydantic==1.10.8"
+RUN pip install -U uvicorn starlette celery gunicorn typer uvloop itsdangerous aiofiles
+RUN pip install "fastapi==0.96.0"
 
 # RUN mamba install -y -c conda-forge wxpython
 
