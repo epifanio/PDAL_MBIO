@@ -95,7 +95,7 @@ RUN apt-get update && apt-get install -y gmt \
 
 
 RUN git clone https://github.com/OSGeo/grass 
-RUN cd grass && ./configure --without-pdal && make -j"$(nproc)" && \
+RUN cd grass && ./configure --without-pdal --with-geos && make -j"$(nproc)" && \
     make install
 
 RUN cd && git clone https://github.com/OSGeo/grass-addons && \
