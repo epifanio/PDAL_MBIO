@@ -607,8 +607,13 @@ async def r_what(form_data: GrassQuery = Depends()):
                 print(n, s)
             raster_query_results = g.raster_what(map=form_data.grass_layers,
                                                  coord=(float(n), float(s)))
-            json_compatible_item_data = jsonable_encoder(raster_query_results)
-            return JSONResponse(content=json_compatible_item_data)
+            ['status'] == 'SUCCESS'
+            # json_compatible_item_data = jsonable_encoder(raster_query_results)
+            return {
+                "status": "SUCCESS",
+                'data': jsonable_encoder(raster_query_results)
+            }
+            # return JSONResponse(content=json_compatible_item_data)
     except CalledModuleError as error:
         return {
             "status": "FAILED",
